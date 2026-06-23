@@ -28,8 +28,8 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 
 ## Status
 - Phase 0 — Mechanical validation ✅
-- Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) 🟡 In progress
-- Phase 2 — nRF24 wireless, 2-node link ⬜
+- Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
+- Phase 2 — nRF24 wireless, 2-node link 🟡 In progress
 - Phase 3 — Three-node star topology ⬜
 - Phase 4 — Reactive control logic + OLED ⬜
 - Phase 5 — ESP8266 gateway + web interface ⬜
@@ -42,10 +42,10 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 
 ## Hardware
 - 3x STM32F103C8T6 Blue Pill
-- 5x SG90 servo
+- 3x SG90 servo
 - 3x BMP280 (temp + pressure, I2C)
-- 4x nRF24L01+ (3 used, 1 spare)
+- 3x nRF24L01+
 - 1x ESP8266 NodeMCU (WiFi gateway, Arduino framework)
-- 5x SSD1306 OLED (I2C)
+- 1x SSD1306 OLED (I2C)
 - 1x HC-SR501 PIR sensor
 - ST-Link V2, CP2102 USB-TTL
