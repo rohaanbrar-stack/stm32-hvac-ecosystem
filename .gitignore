@@ -1,3 +1,9 @@
+# STM32CubeIDE workspace and build artifacts
+.metadata/
+**/Debug/
+**/.settings/
+*.launch
+
 # Prerequisites
 *.d
 
