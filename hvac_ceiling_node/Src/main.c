@@ -12,22 +12,27 @@ int main(void)
 {
 	// Driver initializations
 	Clock_Init();
+	char buffer[40];
+	uint8_t dummy_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
 	I2C_Init();
 	BMP280_Init();
 	USART_Init();
 	SPI_Init();
 	Servo_Init();
+	nRF24_Init();
 
 	// Variable declarations
-	char buffer[40];
+
 	uint32_t adc_T;
 	int32_t temp;
 	volatile uint32_t MAX = 5000000;
 	uint8_t nRF_Val;
 
+
 	// nRF24 test
 	for(int i = 0; i < 1000000; i++);
-	nRF_Val = nRF24_ReadReg(0x00);
+	nRF24_WritePayload(dummy_bytes, 4);
+	nRF_Val = nRF24_ReadReg(0x07);
 	sprintf(buffer, "%02X\r\n", nRF_Val);
 	int i = 0;
 	while(buffer[i] != '\0') {
@@ -35,7 +40,7 @@ int main(void)
 		i++;
 	}
 
-	/*// Servo test
+	// Servo test
 	Servo_SetAngle(0, 1);
 	Servo_SetAngle(0, 2);
 	for(int i = 0; i < MAX; i++);
@@ -69,5 +74,5 @@ int main(void)
 			USART_WriteByte(buffer[i]);
 			i++;
 		}
-	}*/
+	}
 }
