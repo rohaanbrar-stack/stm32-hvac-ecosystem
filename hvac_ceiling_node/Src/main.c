@@ -12,8 +12,6 @@ int main(void)
 {
 	// Driver initializations
 	Clock_Init();
-	char buffer[40];
-	uint8_t dummy_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
 	I2C_Init();
 	BMP280_Init();
 	USART_Init();
@@ -22,12 +20,12 @@ int main(void)
 	nRF24_Init();
 
 	// Variable declarations
-
 	uint32_t adc_T;
 	int32_t temp;
 	volatile uint32_t MAX = 5000000;
 	uint8_t nRF_Val;
-
+	char buffer[40];
+	uint8_t dummy_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
 	// nRF24 test
 	for(int i = 0; i < 1000000; i++);
