@@ -19,8 +19,8 @@ Three STM32F103C8T6 (Blue Pill) nodes communicate over nRF24L01+ wireless. The c
 ```
 stm32-hvac-ecosystem/
 ├── hvac_ceiling_node/     # Ceiling node firmware (STM32F103C8T6)
+├── hvac_control_node/     # Control node firmware (STM32F103C8T6)
 ├── hvac_bathroom_node/    # Bathroom node firmware (STM32F103C8T6) — coming
-├── hvac_control_node/     # Control node firmware (STM32F103C8T6) — coming
 └── common/                # Shared drivers (I2C, USART, clock) — coming
 ```
 
@@ -29,8 +29,8 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 ## Status
 - Phase 0 — Mechanical validation ✅
 - Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
-- Phase 2 — nRF24 wireless, 2-node link 🟡 In progress
-- Phase 3 — Three-node star topology ⬜
+- Phase 2 — nRF24 wireless, 2-node link ✅
+- Phase 3 — Three-node star topology 🟡 In progress
 - Phase 4 — Reactive control logic + OLED ⬜
 - Phase 5 — ESP8266 gateway + web interface ⬜
 
