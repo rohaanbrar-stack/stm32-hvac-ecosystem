@@ -1,6 +1,8 @@
 #include "nRF24.h"
 #include "spi.h"
+#include "usart.h"
 #include <stdint.h>
+#include <stdio.h>
 
 #define RCC_APB2ENR   (*(volatile uint32_t*)0x40021018)
 #define GPIOB_CRL     (*(volatile uint32_t*)0x40010C00)
@@ -13,11 +15,12 @@ void nRF24_Init(void) {
 	GPIOB_CRL &= ~(0xF); // Clear pin 0
 	GPIOB_CRL |= (0x3); // Set pin 0 to general purpose push pull output
 	nRF24_CE_Low(); // Set CE low to start
-	nRF24_WriteReg(0x00, 0x08 | 0x02); // Power and set nRF to TX mode (OR with 0x08 to not disrupt EN_CRC)
+	nRF24_WriteReg(0x00, 0x08 | 0x03); // Power and set nRF to RX mode (OR with 0x08 to not disrupt EN_CRC)
 	for(int i = 0; i < 55000; i++); // Wait ~1.5ms for power up
 	nRF24_WriteReg(0x05, 0x4C); // Sets radio to channel 76
-	nRF24_WriteRegMulti(0x10, address, 5); // Sets 5 byte address for TX_ADDR
-	nRF24_WriteRegMulti(0x11, address, 5); // Sets 5 byte address for RX_ADDR_P0
+
+	nRF24_WriteRegMulti(0x0A, address, 5); // Sets 5 byte address for RX_ADDR_P0
+	nRF24_WriteReg(0x11, 0x04); // Sets length for RX_PW_P0
 }
 
 void nRF24_WriteReg(uint8_t addr, uint8_t byte) {
@@ -50,19 +53,15 @@ uint8_t nRF24_ReadReg(uint8_t addr) {
 	return read; // Return read value
 }
 
-void nRF24_WritePayload(uint8_t *bytes, uint8_t len) {
+void nRF24_ReadPayload(uint8_t *bytes, uint8_t len) {
 	// Write sequence
 	SPI_CS_Low();
-	SPI_Transfer(0xA0);
+	SPI_Transfer(0x61);
 	for(int i = 0; i < len; i++) {
-		SPI_Transfer(bytes[i]); // Write len number of bytes through burst write
+		bytes[i] = SPI_Transfer(0xFF); // Write len number of bytes through burst write
 	}
 	SPI_CS_High();
-
-	// Pulse transmission
-	nRF24_CE_High(); // Pull CE high to send transmission
-	for(int i = 0; i < 360; i++); // Wait 10us
-	nRF24_CE_Low(); // Pull CE low
+	nRF24_WriteReg(0x07, 0x01 << 6); // Clear status register to read again
 }
 
 void nRF24_CE_Low(void) {

@@ -17,7 +17,7 @@ void nRF24_Init(void) {
 	for(int i = 0; i < 55000; i++); // Wait ~1.5ms for power up
 	nRF24_WriteReg(0x05, 0x4C); // Sets radio to channel 76
 	nRF24_WriteRegMulti(0x10, address, 5); // Sets 5 byte address for TX_ADDR
-	nRF24_WriteRegMulti(0x11, address, 5); // Sets 5 byte address for RX_ADDR_P0
+	nRF24_WriteRegMulti(0x0A, address, 5); // Sets 5 byte address for RX_ADDR_P0
 }
 
 void nRF24_WriteReg(uint8_t addr, uint8_t byte) {
@@ -63,6 +63,12 @@ void nRF24_WritePayload(uint8_t *bytes, uint8_t len) {
 	nRF24_CE_High(); // Pull CE high to send transmission
 	for(int i = 0; i < 360; i++); // Wait 10us
 	nRF24_CE_Low(); // Pull CE low
+}
+
+void nRF24_FlushTX(void) {
+    SPI_CS_Low();
+    SPI_Transfer(0xE1);
+    SPI_CS_High();
 }
 
 void nRF24_CE_Low(void) {

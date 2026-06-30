@@ -27,17 +27,6 @@ int main(void)
 	char buffer[40];
 	uint8_t dummy_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
-	// nRF24 test
-	for(int i = 0; i < 1000000; i++);
-	nRF24_WritePayload(dummy_bytes, 4);
-	nRF_Val = nRF24_ReadReg(0x07);
-	sprintf(buffer, "%02X\r\n", nRF_Val);
-	int i = 0;
-	while(buffer[i] != '\0') {
-		USART_WriteByte(buffer[i]);
-		i++;
-	}
-
 	// Servo test
 	Servo_SetAngle(0, 1);
 	Servo_SetAngle(0, 2);
@@ -68,6 +57,21 @@ int main(void)
 		// Print temperature to computer via USART
 		sprintf(buffer, "%ld\r\n", temp);
 		int i = 0;
+		while(buffer[i] != '\0') {
+			USART_WriteByte(buffer[i]);
+			i++;
+		}
+
+		// nRF24 test
+		for(int i = 0; i < 1000000; i++);
+		nRF24_WritePayload(dummy_bytes, 4);
+		nRF_Val = nRF24_ReadReg(0x07);
+		if((nRF_Val & (0x01 << 4)) != 0) {
+			nRF24_WriteReg(0x07, 0x01 << 4);
+			nRF24_FlushTX();
+		}
+		sprintf(buffer, "%02X\r\n", nRF_Val);
+		i = 0;
 		while(buffer[i] != '\0') {
 			USART_WriteByte(buffer[i]);
 			i++;
