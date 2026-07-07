@@ -8,16 +8,18 @@
 
 void nRF24_Init(void) {
 	uint8_t address[] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};
+	volatile uint32_t VAR = 55000;
 
 	RCC_APB2ENR |= (1 << 3); // Enable clock for GPIOB
 	GPIOB_CRL &= ~(0xF); // Clear pin 0
 	GPIOB_CRL |= (0x3); // Set pin 0 to general purpose push pull output
 	nRF24_CE_Low(); // Set CE low to start
 	nRF24_WriteReg(0x00, 0x08 | 0x02); // Power and set nRF to TX mode (OR with 0x08 to not disrupt EN_CRC)
-	for(int i = 0; i < 55000; i++); // Wait ~1.5ms for power up
+	for(int i = 0; i < VAR; i++); // Wait ~1.5ms for power up
 	nRF24_WriteReg(0x05, 0x4C); // Sets radio to channel 76
 	nRF24_WriteRegMulti(0x10, address, 5); // Sets 5 byte address for TX_ADDR
 	nRF24_WriteRegMulti(0x0A, address, 5); // Sets 5 byte address for RX_ADDR_P0
+	nRF24_WriteReg(0x06, 0x0E);
 }
 
 void nRF24_WriteReg(uint8_t addr, uint8_t byte) {
@@ -61,7 +63,7 @@ void nRF24_WritePayload(uint8_t *bytes, uint8_t len) {
 
 	// Pulse transmission
 	nRF24_CE_High(); // Pull CE high to send transmission
-	for(int i = 0; i < 360; i++); // Wait 10us
+	for(volatile uint32_t i = 0; i < 360; i++); // Wait 10us
 	nRF24_CE_Low(); // Pull CE low
 }
 

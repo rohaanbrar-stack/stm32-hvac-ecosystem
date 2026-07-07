@@ -14,9 +14,9 @@ void SPI_Init(void) {
 	RCC_APB2ENR |= (1 << 12); // Enable clock for SPI1
 
 	// Set GPIOA pins to output/input
+	SPI_CS_High(); // Drive pin 4 high immediately to eliminate current spike
 	GPIOA_CRL &= ~(0xF << 16); // Clear pin 4
 	GPIOA_CRL |= (0x3 << 16); // Set pin 4 to general purpose push pull output
-	SPI_CS_High(); // Drive pin 4 high immediately to eliminate current spike
 	GPIOA_CRL &= ~(0xF << 20); // Clear pin 5
 	GPIOA_CRL |= (0xB << 20); // Set pin 5 to alternate function push pull output
 	GPIOA_CRL &= ~(0xF << 24); // Clear pin 6
