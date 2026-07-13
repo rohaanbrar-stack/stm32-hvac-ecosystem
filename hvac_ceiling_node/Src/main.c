@@ -11,15 +11,28 @@
 int main(void)
 {
 	volatile uint32_t MAXM = 1000000;
+	char buffer[40];
 
 	// Driver initializations
 	Clock_Init();
-	I2C_Init();
-	BMP280_Init();
 	USART_Init();
+	sprintf(buffer, "ALIVE2\r\n");
+	int i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	I2C_Init();
+	sprintf(buffer, "I2C\r\n");
+		i = 0;
+		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	BMP280_Init();
+	sprintf(buffer, "BMP\r\n");
+		i = 0;
+		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 	SPI_Init();
 	Servo_Init();
 	for(int i = 0; i < MAXM; i++);
+	sprintf(buffer, "NRF\r\n");
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 	nRF24_Init();
 
 	// Variable declarations
@@ -28,19 +41,24 @@ int main(void)
 	volatile uint32_t MAX = 5000000;
 
 	uint8_t nRF_Val;
-	char buffer[40];
-	uint8_t dummy_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
+
+	uint8_t dummy_bytes[] = {0xDE, 0xAD, 0xBE, 0xEF};
 
 	for(int i = 0; i < MAXM; i++);
 	uint8_t cfg = nRF24_ReadReg(0x00);
-	    sprintf(buffer, "CFG: %02X\r\n", cfg);
-	    int i = 0;
-	    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	sprintf(buffer, "CFG: %02X\r\n", cfg);
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
-	    uint8_t ch = nRF24_ReadReg(0x05);
-	    sprintf(buffer, "CH: %02X\r\n", ch);
-	    i = 0;
-	    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	uint8_t ch = nRF24_ReadReg(0x05);
+	sprintf(buffer, "CH: %02X\r\n", ch);
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+
+	uint8_t set = nRF24_ReadReg(0x06);
+	sprintf(buffer, "SET: %02X\r\n", set);
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
 	// Servo test
 	Servo_SetAngle(0, 1);

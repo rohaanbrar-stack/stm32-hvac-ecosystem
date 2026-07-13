@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+static void print_reg(char*, uint8_t);
 void nRF24_Init(void);
 uint8_t nRF24_ReadReg(uint8_t);
 void nRF24_WriteReg(uint8_t, uint8_t);

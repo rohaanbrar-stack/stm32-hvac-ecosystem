@@ -22,7 +22,7 @@ int main(void)
 
     // nRF24 test
     for(int i = 0; i < MAXM; i++);
-    sprintf(buffer, "Here\r\n");
+    sprintf(buffer, "Here5\r\n");
     int i = 0;
     while(buffer[i] != '\0') {
         USART_WriteByte(buffer[i]);

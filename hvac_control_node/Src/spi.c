@@ -37,6 +37,7 @@ uint8_t SPI_Transfer(uint8_t data) {
 	SPI1_DR = (data); // Writes data to SPI data register for MOSI
 	for(int i = 0; i < 100000; i++) if(SPI1_SR & (1)) break; // Waits until status bit is set by hardware
 	uint8_t input = SPI1_DR; // Reads byte from MISO
+	for(int i = 0; i < 100000; i++) if(!(SPI1_SR & (1 << 7))) break; // Waits until status bit is cleared by hardware
 	return input; // Returns byte
 }
 
