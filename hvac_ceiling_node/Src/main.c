@@ -8,15 +8,18 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define GPIOB_ODR     (*(volatile uint32_t*)0x40010C0C)
+
 int main(void)
 {
 	volatile uint32_t MAXM = 1000000;
-	char buffer[40];
+	char buffer[48];
 
 	// Driver initializations
 	Clock_Init();
 	USART_Init();
-	sprintf(buffer, "ALIVE2\r\n");
+	print_reset_cause();
+	sprintf(buffer, "ALIVE5\r\n");
 	int i = 0;
 	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 	I2C_Init();
@@ -34,6 +37,7 @@ int main(void)
 	i = 0;
 	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 	nRF24_Init();
+	nRF24_Dump();
 
 	// Variable declarations
 	uint32_t adc_T;
@@ -45,20 +49,6 @@ int main(void)
 	uint8_t dummy_bytes[] = {0xDE, 0xAD, 0xBE, 0xEF};
 
 	for(int i = 0; i < MAXM; i++);
-	uint8_t cfg = nRF24_ReadReg(0x00);
-	sprintf(buffer, "CFG: %02X\r\n", cfg);
-	i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-	uint8_t ch = nRF24_ReadReg(0x05);
-	sprintf(buffer, "CH: %02X\r\n", ch);
-	i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-	uint8_t set = nRF24_ReadReg(0x06);
-	sprintf(buffer, "SET: %02X\r\n", set);
-	i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
 	// Servo test
 	Servo_SetAngle(0, 1);
@@ -99,17 +89,20 @@ int main(void)
 		for(int i = 0; i < MAXM; i++);
 		nRF24_WritePayload(dummy_bytes, 4);
 		for(int j = 0; j < 1000; j++) {
-			nRF_Val = nRF24_ReadReg(0x07);
-			if((nRF_Val & (0x03 << 4)) != 0) {
-				break;
-			}
+		    nRF_Val = nRF24_ReadReg(0x07);
+		    if((nRF_Val & (0x03 << 4)) != 0) {
+		        break;
+		    }
 		}
-		if((nRF_Val & (0x01 << 4)) != 0) {
-			nRF24_WriteReg(0x07, 0x01 << 4);
-			nRF24_FlushTX();
-		}
-		if((nRF_Val & (0x01 << 5)) != 0) nRF24_WriteReg(0x07, 0x01 << 5);
-		sprintf(buffer, "%02X\r\n", nRF_Val);
+		uint8_t obs  = nRF24_ReadReg(0x08);   // read BEFORE clearing/flushing
+		uint8_t fifo = nRF24_ReadReg(0x17);
+		sprintf(buffer, "ST:%02X OBS:%02X PLOS:%d ARC:%d FIFO:%02X\r\n",
+		        nRF_Val, obs, obs >> 4, obs & 0x0F, fifo);
+		i = 0;
+		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+
+		nRF24_WriteReg(0x07, (1<<4) | (1<<5));   // clear MAX_RT + TX_DS, every time
+		nRF24_FlushTX();                          // drop any stuck packet, every time
 		i = 0;
 		while(buffer[i] != '\0') {
 			USART_WriteByte(buffer[i]);

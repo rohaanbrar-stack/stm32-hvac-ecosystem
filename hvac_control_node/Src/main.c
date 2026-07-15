@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define GPIOB_ODR     (*(volatile uint32_t*)0x40010C0C)
+
 int main(void)
 {
 	volatile uint32_t MAXM = 1000000;
@@ -12,17 +14,19 @@ int main(void)
 	// Driver initializations
 	Clock_Init();
 	USART_Init();
+	print_reset_cause();
     SPI_Init();
     for(int i = 0; i < MAXM; i++);
     nRF24_Init();
+    nRF24_Dump();
 
     // Variable declarations
-    char buffer[40];
+    char buffer[48];
     uint8_t bytes[10];
 
     // nRF24 test
     for(int i = 0; i < MAXM; i++);
-    sprintf(buffer, "Here5\r\n");
+    sprintf(buffer, "Here6\r\n");
     int i = 0;
     while(buffer[i] != '\0') {
         USART_WriteByte(buffer[i]);
@@ -40,19 +44,26 @@ int main(void)
     while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
     uint8_t set = nRF24_ReadReg(0x06);
-        sprintf(buffer, "SET: %02X\r\n", set);
-        i = 0;
-        while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+    sprintf(buffer, "SET: %02X\r\n", set);
+    i = 0;
+    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
-        uint8_t pw = nRF24_ReadReg(0x11);
-        sprintf(buffer, "PW: %02X\r\n", pw);
-        i = 0;
-        while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+    uint8_t pw = nRF24_ReadReg(0x11);
+    sprintf(buffer, "PW: %02X\r\n", pw);
+    i = 0;
+    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
 
     nRF24_CE_High();
+    uint8_t ce = (GPIOB_ODR >> 0) & 1;
+    sprintf(buffer, "CE: %02X\r\n", ce);
+    i = 0;
+    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+
     while(1) {
-        uint8_t status = nRF24_ReadReg(0x07);
-        sprintf(buffer, "ST: %02X\r\n", status);
+    	uint8_t status = nRF24_ReadReg(0x07);
+    	uint8_t rpd    = nRF24_ReadReg(0x09) & 0x01;   // 1 = signal in the air right now
+    	uint8_t fifo   = nRF24_ReadReg(0x17);
+    	sprintf(buffer, "ST:%02X RPD:%d FIFO:%02X\r\n", status, rpd, fifo);
         int k = 0;
         while(buffer[k] != '\0') {
             USART_WriteByte(buffer[k]);

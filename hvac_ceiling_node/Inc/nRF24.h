@@ -3,9 +3,13 @@
 
 #include <stdint.h>
 
-static void print_reg(char*, uint8_t);
+
+void print_reset_cause(void);
+void nRF24_WriteRegVerified(uint8_t, uint8_t);
 void nRF24_Init(void);
+void nRF24_Dump(void);
 uint8_t nRF24_ReadReg(uint8_t);
+void nRF24_ReadRegMulti(uint8_t, uint8_t*, uint8_t);
 void nRF24_WriteReg(uint8_t, uint8_t);
 void nRF24_WriteRegMulti(uint8_t, uint8_t*, uint8_t);
 void nRF24_WritePayload(uint8_t*, uint8_t);
