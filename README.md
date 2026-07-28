@@ -37,6 +37,10 @@ The wireless phase was achieved: on 2026-06-29 the two nodes exchanged live pack
 
 The modules are SI24R1-class counterfeits, and on this silicon **SPI reads are unreliable while writes land** — register dumps were misdirection; real verdicts came from behavior (retry counters, RPD) and widely-spaced single reads. Final picture: a flawless protocol engine and zero detectable RF across every module, rate, and power — dead RF front-ends. With a fixed deadline and the radio being transport rather than the point, wireless was cut for a 3-wire UART link. The nRF24 driver stays in the repo, proven against a reference implementation, ready to swap back in if provenance modules (e.g. Ebyte E01-ML01DP5) ever replace the clones.
 
+## Wire Protocol
+
+The nodes speak a self-framing byte protocol over UART: `[0xAA][type][payload][checksum]`. The start byte is a resync landmark, the type implies payload length, and an 8-bit additive checksum over type+payload lets the receiver drop corrupted frames and re-hunt without permanent misalignment. Three message types — temperature telemetry (int16 ×100, high byte first), servo command, and ACK. Telemetry is fire-and-forget; commands are acknowledged. Proven end-to-end 2026-07-27: Ceiling streams live duct temp, Control commands the vent servos and gets ACKs back.
+
 ## Repo Structure
 
 ```
@@ -53,7 +57,7 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 - Phase 0 — Mechanical validation ✅
 - Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
 - Phase 2 — nRF24 wireless 2-node link ✅ (2026-06-29 — later retired; see postmortem)
-- Phase 3 — Wired UART inter-node link 🟡 In progress
+- Phase 3 — Wired UART inter-node link ✅ (2026-07-27 — bidirectional framed protocol: telemetry + command + ACK, checksum-validated)
 - Phase 4 — Reactive control logic + OLED ⬜
 - Phase 5 — ESP8266 gateway + web interface ⬜
 
