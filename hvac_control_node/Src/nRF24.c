@@ -13,12 +13,12 @@ static void print_reg(char *label, uint8_t val) {
 	char buffer[40];
 	sprintf(buffer, "%s: %02X\r\n", label, val);
 	int i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
 }
 
 static void print_str(char *s) {
     int i = 0;
-    while (s[i] != '\0') { USART_WriteByte(s[i]); i++; }
+    while (s[i] != '\0') { USART_WriteByte(USART1, s[i]); i++; }
 }
 
 void nRF24_WriteRegVerified(uint8_t addr, uint8_t val) {

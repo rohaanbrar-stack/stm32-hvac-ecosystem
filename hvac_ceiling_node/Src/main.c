@@ -7,8 +7,39 @@
 #include "nRF24.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-#define GPIOB_ODR     (*(volatile uint32_t*)0x40010C0C)
+void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
+	USART_WriteByte(USART2, 0xAA); // Send start byte
+	uint8_t checksum = type; // Add command type to checksum
+	USART_WriteByte(USART2, type); // Send command type
+	for(int i = 0; i < len; i++) { USART_WriteByte(USART2, payload[i]); checksum += payload[i]; } // Send each payload byte and add to checksum
+	USART_WriteByte(USART2, checksum); // Send checksum
+}
+
+bool receive_frame(uint8_t *type, uint8_t *payload) {
+	while(USART_ReadByte(USART2) != 0xAA); // Poll until start byte is recieved
+	*type = USART_ReadByte(USART2); // Read type byte
+	uint8_t len;
+	switch(*type) {    // Check type byte for payload size
+		case 0x01:
+			len = 2;
+			break;
+		case 0x02:
+			len = 1;
+			break;
+		case 0x03:
+			len = 1;
+			break;
+		default:
+			return false;
+	}
+	uint8_t checksum = *type;
+	for(int i = 0; i < len; i++) { payload[i] = USART_ReadByte(USART2); checksum += payload[i]; } // Read each payload byte and add to checksum
+	uint8_t checkTX = USART_ReadByte(USART2); // Read checksum byte
+	if(checksum == checkTX) { return true; } // Compare checksums for corruption
+	else return false;
+}
 
 int main(void)
 {
@@ -17,36 +48,29 @@ int main(void)
 
 	// Driver initializations
 	Clock_Init();
-	USART_Init();
+	USART1_Init();
+	USART2_Init();
 	print_reset_cause();
 	sprintf(buffer, "ALIVE5\r\n");
 	int i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
 	I2C_Init();
 	sprintf(buffer, "I2C\r\n");
-		i = 0;
-		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
 	BMP280_Init();
 	sprintf(buffer, "BMP\r\n");
-		i = 0;
-		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+	i = 0;
+	while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
 	SPI_Init();
 	Servo_Init();
-	for(int i = 0; i < MAXM; i++);
-	sprintf(buffer, "NRF\r\n");
-	i = 0;
-	while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-	nRF24_Init();
-	nRF24_Dump();
 
 	// Variable declarations
 	uint32_t adc_T;
 	int32_t temp;
+	uint8_t type;
+	uint8_t cmd;
 	volatile uint32_t MAX = 5000000;
-
-	uint8_t nRF_Val;
-
-	uint8_t dummy_bytes[] = {0xDE, 0xAD, 0xBE, 0xEF};
 
 	for(int i = 0; i < MAXM; i++);
 
@@ -73,40 +97,33 @@ int main(void)
 		adc_T = BMP280_ReadTemp();
 		temp = BMP280_Compensate(adc_T);
 
-		//Alter servo based on temperature
-		if(temp > 2600) Servo_SetAngle(180, 1);
-		else Servo_SetAngle(0, 1);
-
 		// Print temperature to computer via USART
 		sprintf(buffer, "%ld\r\n", temp);
 		int i = 0;
 		while(buffer[i] != '\0') {
-			USART_WriteByte(buffer[i]);
+			USART_WriteByte(USART1, buffer[i]);
 			i++;
 		}
 
-		// nRF24 test
-		for(int i = 0; i < MAXM; i++);
-		nRF24_WritePayload(dummy_bytes, 4);
-		for(int j = 0; j < 1000; j++) {
-		    nRF_Val = nRF24_ReadReg(0x07);
-		    if((nRF_Val & (0x03 << 4)) != 0) {
-		        break;
-		    }
-		}
-		uint8_t obs  = nRF24_ReadReg(0x08);   // read BEFORE clearing/flushing
-		uint8_t fifo = nRF24_ReadReg(0x17);
-		sprintf(buffer, "ST:%02X OBS:%02X PLOS:%d ARC:%d FIFO:%02X\r\n",
-		        nRF_Val, obs, obs >> 4, obs & 0x0F, fifo);
-		i = 0;
-		while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+		// Send temperature to control node
+		uint8_t payload[2] = {(temp >> 8) & (0xFF), temp & 0xFF};
+		send_frame(0x01, payload, 2);
 
-		nRF24_WriteReg(0x07, (1<<4) | (1<<5));   // clear MAX_RT + TX_DS, every time
-		nRF24_FlushTX();                          // drop any stuck packet, every time
-		i = 0;
-		while(buffer[i] != '\0') {
-			USART_WriteByte(buffer[i]);
-			i++;
+		// One-second delay
+		for(int i = 0; i < MAX; i++) {
+			//Alter servo based on control command
+			if (USART_DataAvailable(USART2)) {   // Check if byte is waiting
+				if(receive_frame(&type, &cmd)) {
+					if (type == 0x02) {
+						Servo_SetAngle(cmd, 1);
+						Servo_SetAngle(cmd, 2);
+						send_frame(0x03, &cmd, 1);
+						sprintf(buffer, "CMD: %d\r\n", cmd);
+						i = 0;
+						while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
+					}
+				}
+			}
 		}
 	}
 }

@@ -4,8 +4,39 @@
 #include "nRF24.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-#define GPIOB_ODR     (*(volatile uint32_t*)0x40010C0C)
+void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
+	USART_WriteByte(USART2, 0xAA); // Send start byte
+	uint8_t checksum = type; // Add command type to checksum
+	USART_WriteByte(USART2, type); // Send command type
+	for(int i = 0; i < len; i++) { USART_WriteByte(USART2, payload[i]); checksum += payload[i]; } // Send each payload byte and add to checksum
+	USART_WriteByte(USART2, checksum); // Send checksum
+}
+
+bool receive_frame(uint8_t *type, uint8_t *payload) {
+	while(USART_ReadByte(USART2) != 0xAA); // Poll until start byte is recieved
+	*type = USART_ReadByte(USART2); // Read type byte
+	uint8_t len;
+	switch(*type) {    // Check type byte for payload size
+		case 0x01:
+			len = 2;
+			break;
+		case 0x02:
+			len = 1;
+			break;
+		case 0x03:
+			len = 1;
+			break;
+		default:
+			return false;
+	}
+	uint8_t checksum = *type;
+	for(int i = 0; i < len; i++) { payload[i] = USART_ReadByte(USART2); checksum += payload[i]; } // Read each payload byte and add to checksum
+	uint8_t checkTX = USART_ReadByte(USART2); // Read checksum byte
+	if(checksum == checkTX) { return true; } // Compare checksums for corruption
+	else return false;
+}
 
 int main(void)
 {
@@ -13,76 +44,39 @@ int main(void)
 
 	// Driver initializations
 	Clock_Init();
-	USART_Init();
+	USART1_Init();
+	USART2_Init();
 	print_reset_cause();
     SPI_Init();
-    for(int i = 0; i < MAXM; i++);
-    nRF24_Init();
-    nRF24_Dump();
 
     // Variable declarations
     char buffer[48];
-    uint8_t bytes[10];
-
-    // nRF24 test
-    for(int i = 0; i < MAXM; i++);
-    sprintf(buffer, "Here6\r\n");
-    int i = 0;
-    while(buffer[i] != '\0') {
-        USART_WriteByte(buffer[i]);
-        i++;
-    }
-
-    uint8_t cfg = nRF24_ReadReg(0x00);
-    sprintf(buffer, "CFG: %02X\r\n", cfg);
-    i = 0;
-    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-    uint8_t ch = nRF24_ReadReg(0x05);
-    sprintf(buffer, "CH: %02X\r\n", ch);
-    i = 0;
-    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-    uint8_t set = nRF24_ReadReg(0x06);
-    sprintf(buffer, "SET: %02X\r\n", set);
-    i = 0;
-    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-    uint8_t pw = nRF24_ReadReg(0x11);
-    sprintf(buffer, "PW: %02X\r\n", pw);
-    i = 0;
-    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
-
-    nRF24_CE_High();
-    uint8_t ce = (GPIOB_ODR >> 0) & 1;
-    sprintf(buffer, "CE: %02X\r\n", ce);
-    i = 0;
-    while(buffer[i] != '\0') { USART_WriteByte(buffer[i]); i++; }
+    uint8_t type;
+    uint8_t payload[2];
+    int16_t temp;
+    uint8_t cmd;
 
     while(1) {
-    	uint8_t status = nRF24_ReadReg(0x07);
-    	uint8_t rpd    = nRF24_ReadReg(0x09) & 0x01;   // 1 = signal in the air right now
-    	uint8_t fifo   = nRF24_ReadReg(0x17);
-    	sprintf(buffer, "ST:%02X RPD:%d FIFO:%02X\r\n", status, rpd, fifo);
-        int k = 0;
-        while(buffer[k] != '\0') {
-            USART_WriteByte(buffer[k]);
-            k++;
-        }
-        if(status & (0x01 << 6)) {
-        	while((nRF24_ReadReg(0x17) & 0x01) == 0) {
-        		nRF24_ReadPayload(bytes, 4);
-        		for(int j = 0; j < 4; j++) {
-        			sprintf(buffer, "%02X\r\n", bytes[j]);
-        			i = 0;
-        			while(buffer[i] != '\0') {
-        				USART_WriteByte(buffer[i]);
-        				i++;
-        			}
-        		}
-        	}
-        	nRF24_WriteReg(0x07, (0x01 << 6));
-        }
-        for(int d = 0; d < 2000000; d++); // ~delay
+
+    	// Read temperature from ceiling node
+    	bool conf = receive_frame(&type, payload);
+
+    	// Check for command type
+    	if(conf && type == 0x01) { // Temperature
+    		temp = (payload[0] << 8) | payload[1];
+    		// Print temperature to USART
+    		sprintf(buffer, "%d, %d, %d\r\n", type, temp, conf);
+    		int i = 0;
+    		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
+
+    		// Send servo controls
+    		cmd = (temp > 2750) ? 180:0;
+    		send_frame(0x02, &cmd, 1);
+    	}
+    	else if(conf && type == 0x03) { // ACK
+    		sprintf(buffer, "ACK\r\n");
+    		int i = 0;
+    		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
+    	}
     }
 }
