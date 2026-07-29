@@ -1,4 +1,4 @@
-# stm32-hvac-ecosystem
+# STM32 Bare-Metal HVAC Ecosystem
 
 ![Language](https://img.shields.io/badge/language-C-blue) ![Platform](https://img.shields.io/badge/platform-STM32F103-green) ![HAL](https://img.shields.io/badge/HAL-none-red)
 
@@ -41,6 +41,14 @@ The modules are SI24R1-class counterfeits, and on this silicon **SPI reads are u
 
 The nodes speak a self-framing byte protocol over UART: `[0xAA][type][payload][checksum]`. The start byte is a resync landmark, the type implies payload length, and an 8-bit additive checksum over type+payload lets the receiver drop corrupted frames and re-hunt without permanent misalignment. Three message types — temperature telemetry (int16 ×100, high byte first), servo command, and ACK. Telemetry is fire-and-forget; commands are acknowledged. Proven end-to-end 2026-07-27: Ceiling streams live duct temp, Control commands the vent servos and gets ACKs back.
 
+## Reactive Control
+
+The control node runs a closed-loop thermostat brain over the wire link. It reads its own room temperature from a second BMP280 and compares it against the duct temperature streamed from the ceiling node, driving the vents through a three-state machine: `CLOSED`, `OPEN_COOLING`, `OPEN_HEATING`.
+
+Opening a vent requires **two** conditions at once: the room must be outside a deadband around the 78 °F setpoint (so it doesn't chase sensor noise), **and** the duct air must actually help — colder than the room by a margin when cooling, warmer by a margin when heating. That second condition is the point: if the room is hot but the duct isn't meaningfully cold (the furnace is running, or the AC hasn't caught up), the vent stays shut and the system reports that the vents can't help instead of blowing useless air.
+
+Demand direction is derived, not configured — heating vs. cooling comes from which side of the setpoint the room is on, so one code path serves an auto heat/cool system with no mode switch. Hysteresis is asymmetric: the vent opens cautiously (both conditions, full margin) but closes the instant the duct swings to the wrong side, so when the central system flips from cooling to heating the room is isolated within a second rather than fed hot air. A vent also closes once the room reaches the duct temperature — supply air can't push it any further. Commands are sent only on state changes, keeping the link quiet. Validated on hardware 2026-07-28.
+
 ## Repo Structure
 
 ```
@@ -58,7 +66,7 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 - Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
 - Phase 2 — nRF24 wireless 2-node link ✅ (2026-06-29 — later retired; see postmortem)
 - Phase 3 — Wired UART inter-node link ✅ (2026-07-27 — bidirectional framed protocol: telemetry + command + ACK, checksum-validated)
-- Phase 4 — Reactive control logic + OLED ⬜
+- Phase 4 — Reactive control logic ✅ (2026-07-28 — 3-state auto heat/cool brain with dual-condition open + asymmetric hysteresis, hardware-validated) · OLED indicator ⬜
 - Phase 5 — ESP8266 gateway + web interface ⬜
 
 ## Later Plans
