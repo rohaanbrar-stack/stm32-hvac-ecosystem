@@ -23,37 +23,36 @@ A third node (bathroom vent) is deferred — it replicates the Ceiling node with
 
 ## Why Wired? — The Wireless Postmortem
 
-The wireless phase was achieved: on 2026-06-29 the two nodes exchanged live packets with auto-acknowledgment confirmed, completing Phase 2. The link then died and never returned. Two weeks of debugging ended with the firmware proven correct and the transport cut anyway:
+The wireless link worked once — 2026-06-29, live packets with auto-ack, Phase 2 complete — then died and never returned. Two weeks of debugging ended with the firmware proven correct and the transport cut anyway:
 
 | Hypothesis | Test | Result |
 |---|---|---|
-| Driver/firmware bug | Datasheet audit; diff vs known-good reference driver; firmware-swap bisect | **Exonerated** |
+| Driver/firmware bug | Datasheet audit; diff vs reference driver; firmware-swap bisect | **Exonerated** |
 | Config not landing | Spaced single-register readbacks, both nodes | All values landed |
 | TX power margin | Swept -18dBm → 0dBm | No change |
 | Data rate / crystal tolerance | 2Mbps, 1Mbps, 250kbps | No change |
-| Dead module batch | Two module types, two separate orders, incl. a never-powered pair | Identical failure |
-| Supply problem | DC metered at module VCC pins under TX load | 3.3V steady |
-| Anything radiating? | CONT_WAVE carrier test — 0dBm carrier at 1m, receiver polling RPD | **RPD:0 — no RF, ever** |
+| Dead module batch | Two module types, two orders, incl. a never-powered pair | Identical failure |
+| Anything radiating? | CONT_WAVE carrier, 0dBm at 1m, receiver polling RPD | **RPD:0 — no RF, ever** |
 
-The modules are SI24R1-class counterfeits, and on this silicon **SPI reads are unreliable while writes land** — register dumps were misdirection; real verdicts came from behavior (retry counters, RPD) and widely-spaced single reads. Final picture: a flawless protocol engine and zero detectable RF across every module, rate, and power — dead RF front-ends. With a fixed deadline and the radio being transport rather than the point, wireless was cut for a 3-wire UART link. The nRF24 driver stays in the repo, proven against a reference implementation, ready to swap back in if provenance modules (e.g. Ebyte E01-ML01DP5) ever replace the clones.
+SI24R1-class counterfeits whose SPI reads lie while writes land — a flawless protocol engine driving dead RF front-ends. The radio was transport, not the point, so it was cut for a 3-wire UART link. The driver stays in the repo, exonerated, ready if provenance modules ever replace the clones.
 
 ## Wire Protocol
 
-The nodes speak a self-framing byte protocol over UART: `[0xAA][type][payload][checksum]`. The start byte is a resync landmark, the type implies payload length, and an 8-bit additive checksum over type+payload lets the receiver drop corrupted frames and re-hunt without permanent misalignment. Three message types — temperature telemetry (int16 ×100, high byte first), servo command, and ACK. Telemetry is fire-and-forget; commands are acknowledged. Proven end-to-end 2026-07-27: Ceiling streams live duct temp, Control commands the vent servos and gets ACKs back.
+Self-framing bytes over UART: `[0xAA][type][payload][checksum]`. Three types — telemetry, servo command, ACK. Telemetry is fire-and-forget, commands are acknowledged. Proven end-to-end 2026-07-27.
 
 ## Reactive Control
 
-The control node runs a closed-loop thermostat brain over the wire link. It reads its own room temperature from a second BMP280 and compares it against the duct temperature streamed from the ceiling node, driving the vents through a three-state machine: `CLOSED`, `OPEN_COOLING`, `OPEN_HEATING`.
+The control node compares its own room temperature against the duct temperature streamed from the ceiling, driving the vents through a three-state machine: `CLOSED`, `OPEN_COOLING`, `OPEN_HEATING`. Opening requires **two** conditions — the room outside a deadband around the 78 °F setpoint, *and* the duct air actually helping:
 
-Opening a vent requires **two** conditions at once: the room must be outside a deadband around the 78 °F setpoint (so it doesn't chase sensor noise), **and** the duct air must actually help — colder than the room by a margin when cooling, warmer by a margin when heating. That second condition is the point: if the room is hot but the duct isn't meaningfully cold (the furnace is running, or the AC hasn't caught up), the vent stays shut and the system reports that the vents can't help instead of blowing useless air.
+| Room vs setpoint | Duct vs room | Action |
+|---|---|---|
+| Above deadband | colder by margin | **open** — cooling |
+| Above deadband | not colder | closed — *vents won't help* |
+| Below deadband | warmer by margin | **open** — heating |
+| Below deadband | not warmer | closed — *vents won't help* |
+| Within deadband | — | closed — satisfied |
 
-Demand direction is derived, not configured — heating vs. cooling comes from which side of the setpoint the room is on, so one code path serves an auto heat/cool system with no mode switch. Hysteresis is asymmetric: the vent opens cautiously (both conditions, full margin) but closes the instant the duct swings to the wrong side, so when the central system flips from cooling to heating the room is isolated within a second rather than fed hot air. A vent also closes once the room reaches the duct temperature — supply air can't push it any further. Commands are sent only on state changes, keeping the link quiet. Validated on hardware 2026-07-28.
-
-## Display
-
-An SSD1306 OLED on the control node mirrors the decision live: room and duct temperature, the setpoint, the current vent state, and an explicit **VENTS WON'T HELP** line whenever the room is off-setpoint but the duct air can't do anything about it. That last line is the one worth having — without it a closed vent on a hot day looks identical to a broken system.
-
-The control loop stays in hundredths of a degree Celsius end to end, the units the sensor and the wire protocol already speak, and converts to Fahrenheit only at the point of display. The conversion is integer fixed-point rather than floating — the Cortex-M3 has no FPU, and newlib's `%f` support is omitted from the default ARM GCC build, so a float here would cost both performance and a debugging session.
+A hot room with hot duct air means the furnace is running, so the vent stays shut rather than blowing it in. An SSD1306 on the control node shows room and duct temperature, setpoint, vent state, and the WON'T HELP line. Hardware-validated 2026-07-28.
 
 ## Repo Structure
 
