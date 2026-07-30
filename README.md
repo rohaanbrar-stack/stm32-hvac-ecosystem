@@ -49,14 +49,21 @@ Opening a vent requires **two** conditions at once: the room must be outside a d
 
 Demand direction is derived, not configured — heating vs. cooling comes from which side of the setpoint the room is on, so one code path serves an auto heat/cool system with no mode switch. Hysteresis is asymmetric: the vent opens cautiously (both conditions, full margin) but closes the instant the duct swings to the wrong side, so when the central system flips from cooling to heating the room is isolated within a second rather than fed hot air. A vent also closes once the room reaches the duct temperature — supply air can't push it any further. Commands are sent only on state changes, keeping the link quiet. Validated on hardware 2026-07-28.
 
+## Display
+
+An SSD1306 OLED on the control node mirrors the decision live: room and duct temperature, the setpoint, the current vent state, and an explicit **VENTS WON'T HELP** line whenever the room is off-setpoint but the duct air can't do anything about it. That last line is the one worth having — without it a closed vent on a hot day looks identical to a broken system.
+
+The control loop stays in hundredths of a degree Celsius end to end, the units the sensor and the wire protocol already speak, and converts to Fahrenheit only at the point of display. The conversion is integer fixed-point rather than floating — the Cortex-M3 has no FPU, and newlib's `%f` support is omitted from the default ARM GCC build, so a float here would cost both performance and a debugging session.
+
 ## Repo Structure
 
 ```
 stm32-hvac-ecosystem/
 ├── hvac_ceiling_node/     # Ceiling node firmware (STM32F103C8T6)
-├── hvac_control_node/     # Control node firmware (STM32F103C8T6)
-└── common/                # Shared drivers (I2C, USART, clock) — coming
+└── hvac_control_node/     # Control node firmware (STM32F103C8T6)
 ```
+
+The two nodes are independent build targets with no shared source path, so the framing functions live in both — deliberately, not as debt. A shared `frame.c` inside one project does nothing for the other, and one in each is two copies under a different name; a real `common/` directory only earns its place if the shared surface grows well beyond a pair of functions. The obligation is simply to keep the two copies identical.
 
 I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github.com/rohaanbrar-stack/stm32-imu-logger). Each node's `nRF24.c` is the retired-but-exonerated wireless driver (see postmortem).
 
@@ -66,7 +73,7 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 - Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
 - Phase 2 — nRF24 wireless 2-node link ✅ (2026-06-29 — later retired; see postmortem)
 - Phase 3 — Wired UART inter-node link ✅ (2026-07-27 — bidirectional framed protocol: telemetry + command + ACK, checksum-validated)
-- Phase 4 — Reactive control logic ✅ (2026-07-28 — 3-state auto heat/cool brain with dual-condition open + asymmetric hysteresis, hardware-validated) · OLED indicator ⬜
+- Phase 4 — Reactive control logic ✅ (2026-07-28 — 3-state auto heat/cool brain with dual-condition open + asymmetric hysteresis, hardware-validated) · OLED indicator ✅ (2026-07-29)
 - Phase 5 — ESP8266 gateway + web interface ⬜
 
 ## Later Plans
