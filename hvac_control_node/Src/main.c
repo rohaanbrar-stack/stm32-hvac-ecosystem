@@ -4,6 +4,7 @@
 #include "usart.h"
 #include "spi.h"
 #include "nRF24.h"
+#include "ssd1306.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -12,7 +13,8 @@
 #define D 85
 #define M 110
 
-typedef enum {CLOSED, OPEN_COOLING, OPEN_HEATING} ventState;
+typedef enum {CLOSED, COOLING, HEATING} ventState;
+static const char *stateNames[] = {"CLOSED", "COOLING", "HEATING"};
 
 void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 	USART_WriteByte(USART2, 0xAA); // Send start byte
@@ -48,24 +50,34 @@ bool receive_frame(uint8_t *type, uint8_t *payload) {
 
 int main(void)
 {
+	char buffer[48];
+
 	// Driver initializations
 	Clock_Init();
 	USART1_Init();
+	{ sprintf(buffer, "CTRL1\r\n"); int i = 0; while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; } }
 	USART2_Init();
 	I2C_Init();
 	print_reset_cause();
 	BMP280_Init();
     SPI_Init();
+    SSD1306_Init();
 
     // Variable declarations
-    char buffer[48];
     uint8_t type;
     uint8_t payload[2];
     uint32_t adc_T;
     int32_t temp;
-    int16_t tempC;
+    int32_t tempF;
+    int32_t tempVent;
+    int32_t tempVentF;
+    int32_t setF;
     uint8_t cmd;
     ventState state = CLOSED;
+
+    // OLED Refresh
+    SSD1306_Clear();
+    SSD1306_Refresh();
 
     while(1) {
 
@@ -73,42 +85,56 @@ int main(void)
     	adc_T = BMP280_ReadTemp();
     	temp = BMP280_Compensate(adc_T);
 
-    	// Print temperature to computer via USART
-    	sprintf(buffer, "%ld\r\n", temp);
-    	int i = 0;
-    	while(buffer[i] != '\0') {
-    		USART_WriteByte(USART1, buffer[i]);
-    		i++;
-    	}
-
     	// Read temperature from ceiling node
     	bool conf = receive_frame(&type, payload);
 
     	// Check for command type
     	if(conf && type == 0x01) { // Temperature
-    		tempC = (payload[0] << 8) | payload[1];
-    		// Print temperature to USART
-    		sprintf(buffer, "%ld, %d, %d, %d, %d\r\n", temp, type, tempC, conf, state);
-    		int i = 0;
-    		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
+    		tempVent = (int16_t)((payload[0] << 8) | payload[1]);
 
     		// Send servo controls
     		switch(state) {    // Check current vent state
     			case CLOSED:
-    				if((temp > (SET + D)) && (tempC < (temp - M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = OPEN_COOLING; break;} // Open duct for cooling
-    				else if((temp < (SET - D)) && (tempC > (temp + M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = OPEN_HEATING; break;} // Open duct for heating
+    				if((temp > (SET + D)) && (tempVent < (temp - M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = COOLING; break;} // Open duct for cooling
+    				else if((temp < (SET - D)) && (tempVent > (temp + M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = HEATING; break;} // Open duct for heating
     				else break;
-    			case OPEN_COOLING:
+    			case COOLING:
     				if(temp <= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
-    				else if(tempC >= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is hot when it should be cold
+    				else if(tempVent >= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is hot when it should be cold
     				else break;
-    			case OPEN_HEATING:
+    			case HEATING:
     				if(temp >= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
-    				else if(tempC <= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is cold when it should be hot
+    				else if(tempVent <= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is cold when it should be hot
     				else break;
     			default:
     				break;
     		}
+    		bool wontHelp = (state == CLOSED) && ((temp > SET + D) || (temp < SET - D)); // Set WONTHELP boolean for display
+
+    		// Print temperature to USART
+    		sprintf(buffer, "%ld, %d, %ld, %d, %d, %d\r\n", temp, type, tempVent, conf, state, wontHelp);
+    		int i = 0;
+    		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
+
+    		// Celsius to Fahrenheit conversions
+    		tempVentF = (tempVent * 9) / 50 + 320;
+    		tempF = (temp * 9) / 50 + 320;
+    		setF = (SET * 9) / 50 + 320;
+
+    		// OLED Display
+    		SSD1306_Clear();
+    		sprintf(buffer, "ROOM: %ld.%ld F", tempF / 10, tempF % 10);
+    		SSD1306_DrawString(buffer, 2, 2);
+    		sprintf(buffer, "DUCT: %ld.%ld F", tempVentF / 10, tempVentF % 10);
+    		SSD1306_DrawString(buffer, 2, 11);
+    		sprintf(buffer, "SET: %ld.%ld F", setF / 10, setF % 10);
+    		SSD1306_DrawString(buffer, 2, 20);
+    		sprintf(buffer, "VENT %s", stateNames[state]);
+    		SSD1306_DrawString(buffer, 2, 29);
+    		if(wontHelp) {
+    			SSD1306_DrawString("VENT WON'T HELP", 2, 38);
+    		}
+    		SSD1306_Refresh();
     	}
     	else if(conf && type == 0x03) { // ACK
     		sprintf(buffer, "ACK\r\n");

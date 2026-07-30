@@ -214,7 +214,7 @@ void SSD1306_DrawChar(char c, uint8_t x, uint8_t y) {
 	}
 }
 
-void SSD1306_DrawString(char *str, uint8_t x, uint8_t y) {
+void SSD1306_DrawString(const char *str, uint8_t x, uint8_t y) {
 	while(*str != '\0') {
 		SSD1306_DrawChar(*str, x, y); // Draw character of string
 		x += 6; // Increase x pixel offset by a character
