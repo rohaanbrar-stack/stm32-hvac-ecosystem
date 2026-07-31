@@ -66,7 +66,7 @@ stm32-hvac-ecosystem/
 
 The two nodes are independent build targets with no shared source path, so the framing functions live in both — deliberately, not as debt. A shared `frame.c` inside one project does nothing for the other, and one in each is two copies under a different name; a real `common/` directory only earns its place if the shared surface grows well beyond a pair of functions. The obligation is simply to keep the two copies identical.
 
-I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github.com/rohaanbrar-stack/stm32-imu-logger). Each node's `nRF24.c` is the retired-but-exonerated wireless driver (see postmortem).
+The I2C, USART, clock, SPI, and SSD1306 drivers are adapted from [stm32-imu-logger](https://github.com/rohaanbrar-stack/stm32-imu-logger), and the SD/FatFS driver will come from there too when logging lands. Each node's `nRF24.c` is the retired-but-exonerated wireless driver (see postmortem).
 
 ## Status
 
@@ -94,6 +94,7 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 - 2x BMP280 (temp + pressure, I2C)
 - 1x ESP8266 NodeMCU (WiFi gateway, Arduino framework)
 - 1x SSD1306 OLED (I2C)
+- 1x Adafruit MicroSD card breakout (SPI)
 - 1x HC-SR501 PIR sensor
 - ST-Link V2, CP2102 USB-TTL
 - ~~nRF24L01+ modules~~ — retired (see postmortem)
