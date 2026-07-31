@@ -36,7 +36,7 @@ void USART2_Init(void) {
 	GPIOA_CRL |= (0x8 << 12); // Set pin 3 pull up/pull down input
 	GPIOA_ODR |= (0x1 << 3); // Set pull up for pin 3
 	USART2_BRR &= ~(0xFFFF); // Clear bits 15:0
-	USART2_BRR |= (0xEA6); // Set BRR to 0x139 (Calculated from USARTDIV)
+	USART2_BRR |= (0xEA6); // Set BRR to 0xEA6 (Calculated from USARTDIV)
 	USART2_CR1 |= (0x200C); // Enable USART, TX, RX
 }
 
@@ -46,7 +46,7 @@ void USART_WriteByte(USART_t *u, uint8_t byte) {
 }
 
 uint8_t USART_ReadByte(USART_t *u) {
-	while(!(u->SR & (0x1 << 5))); // Poll until status register confirms byte recieved
+	while(!(u->SR & (0x1 << 5))); // Poll until status register confirms byte received
 	return u->DR; // Read byte
 }
 

@@ -3,7 +3,6 @@
 #include "i2c.h"
 #include "usart.h"
 #include "spi.h"
-#include "nRF24.h"
 #include "ssd1306.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -25,7 +24,7 @@ void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 }
 
 bool receive_frame(uint8_t *type, uint8_t *payload) {
-	while(USART_ReadByte(USART2) != 0xAA); // Poll until start byte is recieved
+	while(USART_ReadByte(USART2) != 0xAA); // Poll until start byte is received
 	*type = USART_ReadByte(USART2); // Read type byte
 	uint8_t len;
 	switch(*type) {    // Check type byte for payload size
@@ -55,10 +54,8 @@ int main(void)
 	// Driver initializations
 	Clock_Init();
 	USART1_Init();
-	{ sprintf(buffer, "CTRL1\r\n"); int i = 0; while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; } }
 	USART2_Init();
 	I2C_Init();
-	print_reset_cause();
 	BMP280_Init();
     SPI_Init();
     SSD1306_Init();

@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-void TIM2_Init(void);
-void TIM2_IRQHandler(void);
+void TIM3_Init(void);
+void TIM3_IRQHandler(void);
 extern volatile uint8_t sample_flag;
 extern volatile uint32_t timestamp;
 
