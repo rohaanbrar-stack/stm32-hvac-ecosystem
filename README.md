@@ -72,18 +72,18 @@ I2C, USART, and clock drivers are adapted from [stm32-imu-logger](https://github
 
 - Phase 0 — Mechanical validation ✅
 - Phase 1 — Single-node POC (BMP280 + servo PWM on Ceiling node) ✅
-- Phase 2 — nRF24 wireless 2-node link ✅ (2026-06-29 — later retired; see postmortem)
-- Phase 3 — Wired UART inter-node link ✅ (2026-07-27 — bidirectional framed protocol: telemetry + command + ACK, checksum-validated)
-- Phase 4 — Reactive control logic ✅ **complete 2026-07-30** — 3-state auto heat/cool brain with dual-condition open + asymmetric hysteresis (2026-07-28), OLED indicator (2026-07-29), timer-based pacing replacing both nodes' busy-waits (2026-07-30)
-- Phase 5 — ESP8266 gateway + web interface ⬜
+- Phase 2 — nRF24 wireless 2-node link (retired — see postmortem) ✅
+- Phase 3 — Wired UART inter-node link (framed protocol: telemetry + command + ACK) ✅
+- Phase 4 — Reactive control logic (3-state heat/cool brain, OLED indicator, timer-paced) ✅
+- Phase 5 — ESP8266 gateway (WiFi dashboard, NTP-set RTC, inter-node receive timeout) ⬜
+- Phase 6 — Occupancy & logging (PIR occupancy in the control law, SD with RTC-stamped records) ⬜
+- Installation — mount in the room and let it run ⬜
 
 ## Later Plans
 
 - Weather forecast integration via ESP8266 — proactively open/close vents based on outdoor conditions before the room heats up
 - AI-driven thermostat intelligence — learned model predicts optimal vent positions and recommends AC unit temperature when duct air alone won't cool the room
-- Mobile app / local web dashboard for manual override and live temp monitoring
-- PIR-based shutoff — stop cooling an empty room
-- RTC wall-clock timestamping for long-run logs, set from NTP over the ESP8266 — uptime counters reset on every brownout, and this system is meant to run for years
+- Mobile app for manual override and live temp monitoring
 - Bathroom vent node (Ceiling node replica, 1 servo)
 - Wireless revival with provenance nRF24 modules — driver is ready and waiting
 
