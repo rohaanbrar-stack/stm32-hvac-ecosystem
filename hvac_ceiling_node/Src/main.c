@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define FRAME_START 150
+#define FRAME_BYTE 5
+
 void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 	USART_WriteByte(USART2, 0xAA); // Send start byte
 	uint8_t checksum = type; // Add command type to checksum
@@ -17,8 +20,11 @@ void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 }
 
 bool receive_frame(uint8_t *type, uint8_t *payload) {
-	while(USART_ReadByte(USART2) != 0xAA); // Poll until start byte is received
-	*type = USART_ReadByte(USART2); // Read type byte
+	uint8_t byte;
+	do {
+		if(!USART_ReadByte(USART2, &byte, FRAME_START)) return false;
+	} while(byte != 0xAA); // Poll until start byte is received
+	if(!USART_ReadByte(USART2, type, FRAME_BYTE)) return false; // Read type byte
 	uint8_t len;
 	switch(*type) {    // Check type byte for payload size
 		case 0x01:
@@ -34,8 +40,9 @@ bool receive_frame(uint8_t *type, uint8_t *payload) {
 			return false;
 	}
 	uint8_t checksum = *type;
-	for(int i = 0; i < len; i++) { payload[i] = USART_ReadByte(USART2); checksum += payload[i]; } // Read each payload byte and add to checksum
-	uint8_t checkTX = USART_ReadByte(USART2); // Read checksum byte
+	for(int i = 0; i < len; i++) {if(!USART_ReadByte(USART2, &payload[i], FRAME_BYTE)) return false; checksum += payload[i]; } // Read each payload byte and add to checksum
+	uint8_t checkTX;
+	if(!USART_ReadByte(USART2, &checkTX, FRAME_BYTE)) return false; // Read checksum byte
 	if(checksum == checkTX) { return true; } // Compare checksums for corruption
 	else return false;
 }

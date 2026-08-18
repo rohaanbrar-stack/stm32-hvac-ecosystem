@@ -1,4 +1,5 @@
 #include "usart.h"
+#include "timer.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -45,9 +46,13 @@ void USART_WriteByte(USART_t *u, uint8_t byte) {
 	while(!(u->SR & (0x1 << 7))); // Poll until status register confirms byte sent
 }
 
-uint8_t USART_ReadByte(USART_t *u) {
-	while(!(u->SR & (0x1 << 5))); // Poll until status register confirms byte received
-	return u->DR; // Read byte
+bool USART_ReadByte(USART_t *u, uint8_t *byte, uint32_t limit) {
+	uint32_t start = timestamp;
+	while(!(u->SR & (0x1 << 5))) { // Poll until status register confirms byte received
+		if(timestamp - start >= limit) return false; // Timeout
+	}
+	*byte = u->DR; // Read byte
+	return true; // Ok
 }
 
 bool USART_DataAvailable(USART_t *u) {

@@ -17,7 +17,7 @@ typedef struct {
 void USART1_Init(void);
 void USART2_Init(void);
 void USART_WriteByte(USART_t*, uint8_t);
-uint8_t USART_ReadByte(USART_t*);
+bool USART_ReadByte(USART_t*, uint8_t*, uint32_t);
 bool USART_DataAvailable(USART_t *u);
 
 #endif
