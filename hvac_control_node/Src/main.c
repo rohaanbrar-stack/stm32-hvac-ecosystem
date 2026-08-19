@@ -63,6 +63,7 @@ int main(void)
 	TIM2_Init();
 	USART1_Init();
 	USART2_Init();
+	USART3_Init();
 	I2C_Init();
 	BMP280_Init();
     SPI_Init();
@@ -116,7 +117,7 @@ int main(void)
     		}
     		bool wontHelp = (state == CLOSED) && ((temp > SET + D) || (temp < SET - D)); // Set WONTHELP boolean for display
 
-    		// Print temperature to USART
+    		// Print temperature to USART1
     		sprintf(buffer, "%ld, %d, %ld, %d, %d, %d\r\n", temp, type, tempVent, conf, state, wontHelp);
     		int i = 0;
     		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
@@ -140,6 +141,12 @@ int main(void)
     			SSD1306_DrawString("VENT WON'T HELP", 2, 38);
     		}
     		SSD1306_Refresh();
+
+    		// Print temperature to ESP8266
+    		sprintf(buffer, "T %ld, %ld, %d, %d\n", temp, tempVent, state, SET);
+    		for(int i = 0; buffer[i] != '\0'; i++) {
+    		    USART_WriteByte(USART3, buffer[i]);
+    		}
     	}
     	else if(conf && type == 0x03) { // ACK
     		sprintf(buffer, "ACK\r\n");

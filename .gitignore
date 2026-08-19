@@ -59,3 +59,4 @@ dkms.conf
 
 # debug information files
 *.dwo
+hvac_esp_gateway/secrets.h

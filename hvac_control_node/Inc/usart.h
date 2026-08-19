@@ -13,9 +13,11 @@ typedef struct {
 
 #define USART1 ((USART_t*)0x40013800)
 #define USART2 ((USART_t*)0x40004400)
+#define USART3 ((USART_t*)0x40004800)
 
 void USART1_Init(void);
 void USART2_Init(void);
+void USART3_Init(void);
 void USART_WriteByte(USART_t*, uint8_t);
 bool USART_ReadByte(USART_t*, uint8_t*, uint32_t);
 bool USART_DataAvailable(USART_t *u);

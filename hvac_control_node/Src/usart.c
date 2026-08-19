@@ -8,6 +8,9 @@
 #define GPIOA_CRL     (*(volatile uint32_t*)0x40010800)
 #define GPIOA_CRH     (*(volatile uint32_t*)0x40010804)
 #define GPIOA_ODR     (*(volatile uint32_t*)0x4001080C)
+#define GPIOB_CRL     (*(volatile uint32_t*)0x40010C00)
+#define GPIOB_CRH     (*(volatile uint32_t*)0x40010C04)
+#define GPIOB_ODR     (*(volatile uint32_t*)0x40010C0C)
 #define USART1_SR     (*(volatile uint32_t*)0x40013800)
 #define USART1_DR     (*(volatile uint32_t*)0x40013804)
 #define USART1_BRR    (*(volatile uint32_t*)0x40013808)
@@ -16,6 +19,10 @@
 #define USART2_DR     (*(volatile uint32_t*)0x40004404)
 #define USART2_BRR    (*(volatile uint32_t*)0x40004408)
 #define USART2_CR1    (*(volatile uint32_t*)0x4000440C)
+#define USART3_SR     (*(volatile uint32_t*)0x40004800)
+#define USART3_DR     (*(volatile uint32_t*)0x40004804)
+#define USART3_BRR    (*(volatile uint32_t*)0x40004808)
+#define USART3_CR1    (*(volatile uint32_t*)0x4000480C)
 
 void USART1_Init(void) {
 	RCC_APB2ENR |= (0x1 << 2); // Enable GPIOA
@@ -39,6 +46,18 @@ void USART2_Init(void) {
 	USART2_BRR &= ~(0xFFFF); // Clear bits 15:0
 	USART2_BRR |= (0xEA6); // Set BRR to 0xEA6 (Calculated from USARTDIV)
 	USART2_CR1 |= (0x200C); // Enable USART, TX, RX
+}
+
+void USART3_Init(void) {
+	RCC_APB2ENR |= (0x1 << 3); // Enable GPIOB
+	RCC_APB1ENR |= (0x1 << 18); // Enable USART3
+	GPIOB_CRH &= ~(0xFF << 8); // Clear bits 15:8
+	GPIOB_CRH |= (0xB << 8); // Set pin 10 alternate function push pull 50Mhz
+	GPIOB_CRH |= (0x8 << 12); // Set pin 11 pull up/pull down input
+	GPIOB_ODR |= (0x1 << 11); // Set pull up for pin 11
+	USART3_BRR &= ~(0xFFFF); // Clear bits 15:0
+	USART3_BRR |= (0xEA6); // Set BRR to 0xEA6 (Calculated from USARTDIV)
+	USART3_CR1 |= (0x200C); // Enable USART, TX, RX
 }
 
 void USART_WriteByte(USART_t *u, uint8_t byte) {
