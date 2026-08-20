@@ -5,18 +5,27 @@
 #include "spi.h"
 #include "timer.h"
 #include "ssd1306.h"
+#include "sd.h"
+#include "ff.h"
+#include "pir.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define SET 2556
 #define D 85
 #define M 110
 #define FRAME_START 150
 #define FRAME_BYTE 5
+#define DELAY 100000
 
 typedef enum {CLOSED, COOLING, HEATING} ventState;
 static const char *stateNames[] = {"CLOSED", "COOLING", "HEATING"};
+
+DWORD get_fattime(void) {
+	return 0;
+}
 
 void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 	USART_WriteByte(USART2, 0xAA); // Send start byte
@@ -56,34 +65,47 @@ bool receive_frame(uint8_t *type, uint8_t *payload) {
 
 int main(void)
 {
-	char buffer[48];
+
+	// Variable declarations
+	char buffer[100];
+	uint8_t type;
+	uint8_t payload[2];
+	uint32_t adc_T;
+	int32_t temp;
+	int32_t tempF;
+	int32_t tempVent;
+	int32_t tempVentF;
+	int32_t setF;
+	uint8_t cmd;
+	ventState state = CLOSED;
+	FATFS fs; // FATFS object for file mount
+	FIL fp; // File pointer for FatFS file open
+	UINT bw; // Number of bytes sent through FatFS write
 
 	// Driver initializations
 	Clock_Init();
 	TIM2_Init();
+	SPI_Init();
+	for(int i = 0; i < DELAY; i++);
+	SD_Init();
+	f_mount(&fs, "0:", 1);
+	f_open(&fp, "0:log.csv", FA_CREATE_ALWAYS | FA_WRITE);
 	USART1_Init();
 	USART2_Init();
 	USART3_Init();
 	I2C_Init();
 	BMP280_Init();
-    SPI_Init();
     SSD1306_Init();
-
-    // Variable declarations
-    uint8_t type;
-    uint8_t payload[2];
-    uint32_t adc_T;
-    int32_t temp;
-    int32_t tempF;
-    int32_t tempVent;
-    int32_t tempVentF;
-    int32_t setF;
-    uint8_t cmd;
-    ventState state = CLOSED;
+    PIR_Init();
 
     // OLED Refresh
     SSD1306_Clear();
     SSD1306_Refresh();
+
+    // SD Test
+    sprintf(buffer, "TEST");
+    f_write(&fp, buffer, strlen(buffer), &bw); // FatFS SD write
+    f_sync(&fp); // Flush FatFS write data
 
     while(1) {
 
@@ -118,7 +140,7 @@ int main(void)
     		bool wontHelp = (state == CLOSED) && ((temp > SET + D) || (temp < SET - D)); // Set WONTHELP boolean for display
 
     		// Print temperature to USART1
-    		sprintf(buffer, "%ld, %d, %ld, %d, %d, %d\r\n", temp, type, tempVent, conf, state, wontHelp);
+    		sprintf(buffer, "%ld, %d, %ld, %d, %d, %d, %ld\r\n", temp, type, tempVent, conf, state, wontHelp, last_motion);
     		int i = 0;
     		while(buffer[i] != '\0') { USART_WriteByte(USART1, buffer[i]); i++; }
 
