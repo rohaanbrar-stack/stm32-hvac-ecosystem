@@ -19,9 +19,10 @@
 #define FRAME_START 150
 #define FRAME_BYTE 5
 #define DELAY 100000
+#define AWAY_TIMEOUT 8640000
 
-typedef enum {CLOSED, COOLING, HEATING} ventState;
-static const char *stateNames[] = {"CLOSED", "COOLING", "HEATING"};
+typedef enum {CLOSED, COOLING, HEATING, AWAY} ventState;
+static const char *stateNames[] = {"CLOSED", "COOLING", "HEATING", "AWAY"};
 
 DWORD get_fattime(void) {
 	return 0;
@@ -70,7 +71,10 @@ int main(void)
 	char buffer[100];
 	uint8_t type;
 	uint8_t payload[2];
+	uint8_t sync_count = 0;
 	uint32_t adc_T;
+	uint32_t timestamp_b;
+	uint32_t timestamp_a;
 	int32_t temp;
 	int32_t tempF;
 	int32_t tempVent;
@@ -89,7 +93,11 @@ int main(void)
 	for(int i = 0; i < DELAY; i++);
 	SD_Init();
 	f_mount(&fs, "0:", 1);
-	f_open(&fp, "0:log.csv", FA_CREATE_ALWAYS | FA_WRITE);
+	f_open(&fp, "0:log.csv", FA_OPEN_APPEND | FA_WRITE);
+	if(f_size(&fp) == 0) { // Write headers if new file
+	    sprintf(buffer, "timestamp,temp,tempVent,state,wontHelp,last_motion\r\n"); // Headers
+		f_write(&fp, buffer, strlen(buffer), &bw); // FatFS SD write
+	}
 	USART1_Init();
 	USART2_Init();
 	USART3_Init();
@@ -101,11 +109,6 @@ int main(void)
     // OLED Refresh
     SSD1306_Clear();
     SSD1306_Refresh();
-
-    // SD Test
-    sprintf(buffer, "TEST");
-    f_write(&fp, buffer, strlen(buffer), &bw); // FatFS SD write
-    f_sync(&fp); // Flush FatFS write data
 
     while(1) {
 
@@ -120,23 +123,30 @@ int main(void)
     	if(conf && type == 0x01) { // Temperature
     		tempVent = (int16_t)((payload[0] << 8) | payload[1]);
 
-    		// Send servo controls
-    		switch(state) {    // Check current vent state
-    			case CLOSED:
-    				if((temp > (SET + D)) && (tempVent < (temp - M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = COOLING; break;} // Open duct for cooling
-    				else if((temp < (SET - D)) && (tempVent > (temp + M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = HEATING; break;} // Open duct for heating
-    				else break;
-    			case COOLING:
-    				if(temp <= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
-    				else if(tempVent >= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is hot when it should be cold
-    				else break;
-    			case HEATING:
-    				if(temp >= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
-    				else if(tempVent <= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is cold when it should be hot
-    				else break;
-    			default:
-    				break;
+    		if((timestamp - last_motion) >= AWAY_TIMEOUT) {
+    			if(state != AWAY) {cmd = 0; send_frame(0x02, &cmd, 1); state = AWAY;} // Activate Sleep Mode
+    		} else {
+    			if(state == AWAY) state = CLOSED; // Turn off Sleep Mode
+
+    			// Send servo controls
+    			switch(state) {    // Check current vent state
+    			    case CLOSED:
+    			    	if((temp > (SET + D)) && (tempVent < (temp - M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = COOLING; break;} // Open duct for cooling
+    			    	else if((temp < (SET - D)) && (tempVent > (temp + M))) {cmd = 180; send_frame(0x02, &cmd, 1); state = HEATING; break;} // Open duct for heating
+    			    	else break;
+    			    case COOLING:
+    			    	if(temp <= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
+    			   	    else if(tempVent >= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is hot when it should be cold
+    			   		else break;
+    			   	case HEATING:
+    			   		if(temp >= SET) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if room temperature is right
+    			   		else if(tempVent <= temp) {cmd = 0; send_frame(0x02, &cmd, 1); state = CLOSED; break;} // Close duct if duct is cold when it should be hot
+    			   		else break;
+    			   	default:
+    			   		break;
+    			}
     		}
+
     		bool wontHelp = (state == CLOSED) && ((temp > SET + D) || (temp < SET - D)); // Set WONTHELP boolean for display
 
     		// Print temperature to USART1
@@ -169,6 +179,19 @@ int main(void)
     		for(int i = 0; buffer[i] != '\0'; i++) {
     		    USART_WriteByte(USART3, buffer[i]);
     		}
+
+    		// Log data in SD Card
+    		if(sync_count == 60) { // Flush data and log timestamp flush sync mismatch
+    			sync_count = 0;
+    			timestamp_b = timestamp;
+    			f_sync(&fp); // Flush FatFS write data
+    			timestamp_a = timestamp;
+    			sprintf(buffer, "Sync: %ld\r\n", timestamp_a - timestamp_b);
+    			for(int i = 0; buffer[i] != '\0'; i++) {USART_WriteByte(USART1, buffer[i]);}
+    		} else {sync_count++;}
+
+    		sprintf(buffer, "%ld,%ld,%ld,%d,%d,%ld\r\n", timestamp, temp, tempVent, state, wontHelp, last_motion);
+    		f_write(&fp, buffer, strlen(buffer), &bw); // FatFS SD write
     	}
     	else if(conf && type == 0x03) { // ACK
     		sprintf(buffer, "ACK\r\n");
