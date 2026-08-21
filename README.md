@@ -27,6 +27,10 @@ Validated on the bench, not installed in the room. Mounting is future work.
 
 ## Hardware
 
+<p align="center">
+  <img src="assets/wiring.png" width="600"/>
+</p>
+
 **Control node**, STM32F103C8T6, near the door. Hub, logging, display, gateway bridge.
 
 | Component | Interface | Pins |
