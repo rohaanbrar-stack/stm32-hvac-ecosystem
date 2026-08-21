@@ -32,7 +32,7 @@ void send_frame(uint8_t type, uint8_t *payload, uint8_t len) {
 	USART_WriteByte(USART2, 0xAA); // Send start byte
 	uint8_t checksum = type; // Add command type to checksum
 	USART_WriteByte(USART2, type); // Send command type
-	for(int i = 0; i < len; i++) { USART_WriteByte(USART2, payload[i]); checksum += payload[i]; } // Send each payload byte and add to checksum
+	for(int i = 0; i < len; i++) { USART_WriteByte(USART2, payload[i]); checksum += payload[i];} // Send each payload byte and add to checksum
 	USART_WriteByte(USART2, checksum); // Send checksum
 }
 
