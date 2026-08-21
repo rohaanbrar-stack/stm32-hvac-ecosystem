@@ -2,6 +2,7 @@
 #include <ESP8266WebServer.h>
 #include <SoftwareSerial.h>
 #include "secrets.h"
+#include "page.h"
 
 SoftwareSerial link(D5, D6);
 ESP8266WebServer server(80);
@@ -29,6 +30,10 @@ void handleData() {
   server.send(200, "application/json", json);
 }
 
+void handleRoot() {
+  server.send_P(200, "text/html", PAGE);
+}
+
 void setup() {
   Serial.begin(115200);
   link.begin(9600);
@@ -46,6 +51,7 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   server.on("/data", handleData);
+  server.on("/", handleRoot);
   server.begin();
 }
 
