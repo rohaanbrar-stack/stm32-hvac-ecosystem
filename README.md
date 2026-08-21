@@ -2,6 +2,10 @@
 
 ![Language](https://img.shields.io/badge/language-C-blue) ![Platform](https://img.shields.io/badge/platform-STM32F103-green) ![HAL](https://img.shields.io/badge/HAL-none-red)
 
+<p align="center">
+  <img src="assets/HVAC_Cover.jpg" width="600"/>
+</p>
+
 Two-node HVAC automation for an attic bedroom that holds heat year-round, where two adjustable ceiling vents are the only physical control. A ceiling node reports duct temperature over a framed UART link. A control node compares it against room temperature, drives the vent servos, logs every decision to microSD, watches the room for occupancy, and streams telemetry to an ESP8266 that serves a live dashboard over WiFi.
 
 Both STM32 nodes are register-level C written against RM0008, with no HAL and no LL. The ESP8266 gateway runs the Arduino framework, because the value there is a working WiFi stack and rewriting one bare-metal would prove nothing.
@@ -28,7 +32,7 @@ Validated on the bench, not installed in the room. Mounting is future work.
 ## Hardware
 
 <p align="center">
-  <img src="assets/wiring.png" width="600"/>
+  <img src="assets/HVAC_Wiring.png" width="600"/>
 </p>
 
 **Control node**, STM32F103C8T6, near the door. Hub, logging, display, gateway bridge.
